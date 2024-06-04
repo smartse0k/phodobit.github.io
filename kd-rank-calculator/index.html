@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>카트 점수 계산기</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap"
+            rel="stylesheet"
+        />
+    </head>
+    <body>
+        <section>
+            <h2>사용 방법</h2>
+            <p>1. [참가자]에서 게임에 참여한 플레이어를 체크한다.</p>
+            <p>2. 게임 결과를 캡처한다.</p>
+            <p>
+                3. [게임결과등록]에 캡처한 결과 화면 그림 파일을 등록하거나,
+                Control + V로 붙여넣는다.
+            </p>
+            <p>4. [결과]에서 결과를 확인한다.</p>
+        </section>
+
+        <section>
+            <h2>참가자</h2>
+            <section id="participants"></section>
+        </section>
+
+        <section>
+            <h2>파일등록</h2>
+            <input type="file" id="fileInput" name="file" />
+
+            <h3>등록된 파일 미리보기</h3>
+            <img id="registeredImage" />
+        </section>
+
+        <section>
+            <h2>결과</h2>
+            <canvas id="resultCanvas" width="720" height="480"></canvas>
+        </section>
+
+        <script src="./opencv.js" type="text/javascript"></script>
+        <script type="text/javascript">
+            const loadCvImage = (imageElement) => {
+                let image = cv.imread(imageElement);
+                let grayImage = new cv.Mat();
+                cv.cvtColor(image, grayImage, cv.COLOR_BGR2GRAY);
+                // cv.threshold(
+                //     grayImage,
+                //     grayImage,
+                //     170,
+                //     255,
+                //     cv.THRESH_BINARY
+                // )[1];
+                return {
+                    origin: image,
+                    gray: grayImage,
+                };
+            };
+
+            const findOffsetY = (sourceGrayImage, templateGrayImage) => {
+                const dest = new cv.Mat();
+                const mask = new cv.Mat();
+                cv.matchTemplate(
+                    sourceGrayImage,
+                    templateGrayImage,
+                    dest,
+                    cv.TM_CCOEFF_NORMED,
+                    mask
+                );
+                const ret = cv.minMaxLoc(dest, mask);
+                const maxPoint = ret.maxLoc;
+                return maxPoint.y;
+            };
+
+            const delay = async (t) => {
+                return new Promise((resolve) => {
+                    setTimeout(() => {
+                        resolve();
+                    }, t);
+                });
+            };
+        </script>
+        <script type="text/javascript">
+            const playerNames = [
+                "레이서vs아스카앉아",
+                "술은아직멀었는가",
+                "중간은하자",
+                "지나가네1",
+                "차방간",
+                "포도빛향기에취해만가는데",
+                "한문철의보복운전D",
+            ];
+
+            const playerImages = {};
+            const boardImage = new Image();
+            /**
+             * @type {CanvasRenderingContext2D}
+             */
+            const resultCanvasContext = resultCanvas.getContext("2d");
+
+            const gameScores = [];
+
+            const initialize = async () => {
+                // cv가 로딩될때까지 기다린다
+                while (true) {
+                    try {
+                        new cv.Mat();
+                        break;
+                    } catch (err) {
+                        await delay(100);
+                    }
+                }
+
+                // 플레이어 cv 이미지 초기화
+                playerNames.forEach((playerName) => {
+                    const image = new Image();
+                    image.src = `./users/${playerName}.png`;
+                    image.addEventListener("load", () => {
+                        const cvImage = loadCvImage(image);
+                        playerImages[playerName] = cvImage;
+                    });
+                    image.addEventListener("error", () => {
+                        alert(`플레이어 '${playerName}' 이미지 로딩 실패.`);
+                    });
+                });
+
+                // 플레이어 참가자 버튼 추가
+                playerNames.sort().forEach((playerName) => {
+                    const article = document.createElement("article");
+                    const label = document.createElement("label");
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.name = "participant";
+                    checkbox.value = playerName;
+                    checkbox.checked = true;
+
+                    const span = document.createElement("span");
+                    span.innerText = playerName;
+
+                    label.appendChild(checkbox);
+                    label.appendChild(span);
+                    article.append(label);
+                    participants.appendChild(article);
+                });
+
+                boardImage.src = "./board.png";
+
+                setInterval(() => {
+                    drawResult();
+                }, 500);
+
+                console.log("[initialize] 초기화 완료");
+            };
+
+            const drawResult = () => {
+                let x = 0;
+                let y = 0;
+                resultCanvasContext.drawImage(boardImage, 0, 0);
+
+                resultCanvasContext.fillStyle = "#ffffff";
+                resultCanvasContext.font = "20px NotoSansKr";
+
+                let headY = 135;
+                resultCanvasContext.fillText("#", 35, headY);
+                resultCanvasContext.fillText("플레이어", 70, headY);
+                resultCanvasContext.fillText("R1", 350, headY);
+                resultCanvasContext.fillText("R2", 400, headY);
+                resultCanvasContext.fillText("R3", 450, headY);
+                resultCanvasContext.fillText("R4", 500, headY);
+                resultCanvasContext.fillText("R5", 550, headY);
+                resultCanvasContext.fillText("Total", 600, headY);
+
+                // 순위 출력
+                y = 170;
+                for (let i = 1; i <= 8; ++i) {
+                    resultCanvasContext.fillText(i, 35, y);
+                    y += 40;
+                }
+
+                // 플레이어 총점 계산
+                const totalScoreByPlayer = {};
+                gameScores.forEach((gameScore) => {
+                    gameScore.forEach((e) => {
+                        let previous = totalScoreByPlayer[e.playerName];
+                        if (!previous) {
+                            previous = 0;
+                        }
+                        totalScoreByPlayer[e.playerName] = previous + e.rank;
+                    });
+                });
+                const totalScores = [];
+                for (const playerName in totalScoreByPlayer) {
+                    totalScores.push({
+                        playerName: playerName,
+                        score: totalScoreByPlayer[playerName],
+                    });
+                }
+                totalScores.sort((l, r) => {
+                    if (l.score > r.score) {
+                        return 1;
+                    } else if (l.score < r.score) {
+                        return -1;
+                    }
+                    return 0;
+                });
+
+                x = 70;
+                y = 170;
+                totalScores.forEach((e) => {
+                    resultCanvasContext.fillText(e.playerName, x, y);
+                    y += 40;
+                });
+
+                // 점수 출력
+                x = 350;
+                gameScores.forEach((gameScore) => {
+                    y = 170;
+
+                    totalScores.forEach((e) => {
+                        const playerName = e.playerName;
+                        const player = gameScore.find((e) => {
+                            return e.playerName == playerName;
+                        });
+                        let rank = "-";
+                        if (player) {
+                            rank = player.rank;
+                        }
+
+                        resultCanvasContext.fillText(rank, x, y);
+                        y += 40;
+                    });
+
+                    gameScore.forEach((e) => {
+                        const playerName = e.playerName;
+                        const rank = e.rank;
+                    });
+
+                    x += 50;
+                });
+
+                // 총점 출력
+                x = 600;
+                y = 170;
+                totalScores.forEach((e) => {
+                    resultCanvasContext.fillText(e.score, x, y);
+                    y += 40;
+                });
+            };
+
+            const recognize = (inputGameResultImage, playerList) => {
+                const gameResultImage = loadCvImage(inputGameResultImage);
+                return Object.entries(playerImages)
+                    .filter((e) => {
+                        return playerList.indexOf(e[0]) >= 0;
+                    })
+                    .map((e) => {
+                        const r = {
+                            playerName: e[0],
+                            offsetY: findOffsetY(
+                                gameResultImage.gray,
+                                e[1].gray
+                            ),
+                        };
+                        return r;
+                    })
+                    .sort((l, r) => {
+                        if (l.offsetY > r.offsetY) {
+                            return 1;
+                        } else if (l.offsetY < r.offsetY) {
+                            return -1;
+                        }
+                        return 0;
+                    })
+                    .map((e, index) => {
+                        return {
+                            playerName: e.playerName,
+                            rank: index + 1,
+                        };
+                    });
+            };
+
+            initialize();
+
+            fileInput.addEventListener("change", (e) => {
+                registeredImage.src = URL.createObjectURL(e.target.files[0]);
+            });
+
+            window.addEventListener("paste", (e) => {
+                registeredImage.src = URL.createObjectURL(
+                    e.clipboardData.files[0]
+                );
+            });
+
+            const getSelectedPlayerNames = () => {
+                const ret = [];
+                document
+                    .querySelectorAll("[name=participant]:checked")
+                    .forEach((e) => {
+                        ret.push(e.value);
+                    });
+                return ret;
+            };
+
+            registeredImage.onload = function () {
+                const playerList = getSelectedPlayerNames();
+
+                gameScores.push(recognize(registeredImage, playerList));
+            };
+        </script>
+    </body>
+</html>
