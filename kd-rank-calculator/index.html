@@ -33,6 +33,7 @@
 
             <h3>등록된 파일 미리보기</h3>
             <img id="registeredImage" />
+            <!-- <canvas id="canvasOutput" ></canvas> -->
         </section>
 
         <section>
@@ -84,6 +85,7 @@
         </script>
         <script type="text/javascript">
             const playerNames = [
+                "perfoce",
                 "레이서vs아스카앉아",
                 "술은아직멀었는가",
                 "중간은하자",
@@ -305,6 +307,9 @@
 
             registeredImage.onload = function () {
                 const playerList = getSelectedPlayerNames();
+				
+                //const img = loadCvImage(registeredImage);
+                //cv.imshow('canvasOutput', img.gray);
 
                 gameScores.push(recognize(registeredImage, playerList));
             };
