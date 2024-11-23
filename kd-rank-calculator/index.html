@@ -9,38 +9,94 @@
             href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap"
             rel="stylesheet"
         />
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px 0 100px 0;
+                box-sizing: border-box;
+            }
+
+            .hide {
+                display: none;
+            }
+
+            #result-text {
+                width: 100%;
+                height: 200px;
+            }
+
+            #result-table {
+                width: 100%;
+            }
+            #result-table th {
+                text-align: center;
+                line-height: 50px;
+                border-bottom: 1px solid #cccccc;
+            }
+            #result-table td {
+                text-align: center;
+                line-height: 50px;
+                border-bottom: 1px solid #cccccc;
+            }
+        </style>
     </head>
     <body>
-        <section>
-            <h2>사용 방법</h2>
-            <p>1. [참가자]에서 게임에 참여한 플레이어를 체크한다.</p>
-            <p>2. 게임 결과를 캡처한다.</p>
-            <p>
-                3. [게임결과등록]에 캡처한 결과 화면 그림 파일을 등록하거나,
-                Control + V로 붙여넣는다.
-            </p>
-            <p>4. [결과]에서 결과를 확인한다.</p>
+        <section class="container">
+            <section>
+                <h3>사용 방법</h3>
+                <p>
+                    1. [참가자]에서 게임에 참여한 플레이어를 체크한다.<br>
+                    2. 게임 결과를 캡처한다.<br>
+                    3. Control + V로 붙여넣는다.<br>
+                    4. [결과]에서 결과를 확인한다.
+                </p>
+            </section>
+
+            <section>
+                <h3>참가자</h3>
+                <section id="participants"></section>
+            </section>
+
+            <section class="hide">
+                <h3>파일등록</h3>
+                <input type="file" id="fileInput" name="file" />
+            </section>
+
+            <section>
+                <h3>등록된 파일 미리보기</h3>
+                <img id="registeredImage" />
+            </section>
+
+            <section class="hide">
+                <h3>디버그용</h3>
+                <canvas id="canvasOutput" ></canvas>
+            </section>
+
+            <section>
+                <h3>결과</h3>
+                <textarea id="result-text" onchange="showResult();" onkeypress="showResult();"></textarea>
+            </section>
+
+            <section>
+                <h3>종합 결과</h3>
+                <table id="result-table">
+                    <thead>
+                        <th>#</th>
+                        <th>닉네임</th>
+                        <th>순위</th>
+                        <th>점수</th>
+                    </thead>
+                    <tbody id="result-tbody"></tbody>
+                </table>
+            </section>
         </section>
-
-        <section>
-            <h2>참가자</h2>
-            <section id="participants"></section>
-        </section>
-
-        <section>
-            <h2>파일등록</h2>
-            <input type="file" id="fileInput" name="file" />
-
-            <h3>등록된 파일 미리보기</h3>
-            <img id="registeredImage" />
-            <!-- <canvas id="canvasOutput" ></canvas> -->
-        </section>
-
-        <section>
-            <h2>결과</h2>
-            <canvas id="resultCanvas" width="720" height="480"></canvas>
-        </section>
-
+        
         <script src="./opencv.js" type="text/javascript"></script>
         <script type="text/javascript">
             const loadCvImage = (imageElement) => {
@@ -99,13 +155,6 @@
             ];
 
             const playerImages = {};
-            const boardImage = new Image();
-            /**
-             * @type {CanvasRenderingContext2D}
-             */
-            const resultCanvasContext = resultCanvas.getContext("2d");
-
-            const gameScores = [];
 
             const initialize = async () => {
                 // cv가 로딩될때까지 기다린다
@@ -150,108 +199,7 @@
                     participants.appendChild(article);
                 });
 
-                boardImage.src = "./board.png";
-
-                setInterval(() => {
-                    drawResult();
-                }, 500);
-
                 console.log("[initialize] 초기화 완료");
-            };
-
-            const drawResult = () => {
-                let x = 0;
-                let y = 0;
-                resultCanvasContext.drawImage(boardImage, 0, 0);
-
-                resultCanvasContext.fillStyle = "#ffffff";
-                resultCanvasContext.font = "20px NotoSansKr";
-
-                let headY = 135;
-                resultCanvasContext.fillText("#", 35, headY);
-                resultCanvasContext.fillText("플레이어", 70, headY);
-                resultCanvasContext.fillText("R1", 350, headY);
-                resultCanvasContext.fillText("R2", 400, headY);
-                resultCanvasContext.fillText("R3", 450, headY);
-                resultCanvasContext.fillText("R4", 500, headY);
-                resultCanvasContext.fillText("R5", 550, headY);
-                resultCanvasContext.fillText("Total", 600, headY);
-
-                // 순위 출력
-                y = 170;
-                for (let i = 1; i <= 8; ++i) {
-                    resultCanvasContext.fillText(i, 35, y);
-                    y += 40;
-                }
-
-                // 플레이어 총점 계산
-                const totalScoreByPlayer = {};
-                gameScores.forEach((gameScore) => {
-                    gameScore.forEach((e) => {
-                        let previous = totalScoreByPlayer[e.playerName];
-                        if (!previous) {
-                            previous = 0;
-                        }
-                        totalScoreByPlayer[e.playerName] = previous + e.rank;
-                    });
-                });
-                const totalScores = [];
-                for (const playerName in totalScoreByPlayer) {
-                    totalScores.push({
-                        playerName: playerName,
-                        score: totalScoreByPlayer[playerName],
-                    });
-                }
-                totalScores.sort((l, r) => {
-                    if (l.score > r.score) {
-                        return 1;
-                    } else if (l.score < r.score) {
-                        return -1;
-                    }
-                    return 0;
-                });
-
-                x = 70;
-                y = 170;
-                totalScores.forEach((e) => {
-                    resultCanvasContext.fillText(e.playerName, x, y);
-                    y += 40;
-                });
-
-                // 점수 출력
-                x = 350;
-                gameScores.forEach((gameScore) => {
-                    y = 170;
-
-                    totalScores.forEach((e) => {
-                        const playerName = e.playerName;
-                        const player = gameScore.find((e) => {
-                            return e.playerName == playerName;
-                        });
-                        let rank = "-";
-                        if (player) {
-                            rank = player.rank;
-                        }
-
-                        resultCanvasContext.fillText(rank, x, y);
-                        y += 40;
-                    });
-
-                    gameScore.forEach((e) => {
-                        const playerName = e.playerName;
-                        const rank = e.rank;
-                    });
-
-                    x += 50;
-                });
-
-                // 총점 출력
-                x = 600;
-                y = 170;
-                totalScores.forEach((e) => {
-                    resultCanvasContext.fillText(e.score, x, y);
-                    y += 40;
-                });
             };
 
             const recognize = (inputGameResultImage, playerList) => {
@@ -308,13 +256,105 @@
                 return ret;
             };
 
+            const appendResultText = (text) => {
+                const dom = document.querySelector("#result-text");
+                dom.value += text;
+            };
+
+            const showResult = () => {
+                const resultTextDom = document.querySelector("#result-text");
+                const resultText = resultTextDom.value;
+
+                const roundTextList = resultText
+                    .split("=====")
+                    .map((e) => e.trim())
+                    .filter((e) => e.length > 0);
+
+                // { player1: { totalScore: 10, scoreByRound: {1: 3, 2: 7} } }
+                const scoreMap = {};
+                const roundCount = roundTextList.length;
+                
+                roundTextList.forEach((playerText, roundIndex) => {
+                    const roundId = roundIndex + 1;
+
+                    const playerList = playerText
+                        .split("\n")
+                        .map((e) => e.trim())
+                        .filter((e) => e.length > 0);
+                    
+                    playerList.forEach((player, playerIndex) => {
+                        const rank = playerIndex + 1;
+
+                        if (!Object.prototype.hasOwnProperty.call(scoreMap, player)) {
+                            scoreMap[player] = { totalScore: 0, scoreByRound: {} };
+                        }
+
+                        scoreMap[player].totalScore += rank;
+                        scoreMap[player].scoreByRound[roundId] = rank;
+                    });
+                });
+                
+                const sortedPlayers = Object
+                    .entries(scoreMap)
+                    .sort((left, right) => {
+                        return left[1].totalScore - right[1].totalScore;
+                    })
+                    .map((e) => e[0]);
+
+                // table
+                const tbody = document.querySelector("#result-tbody");
+                tbody.innerHTML = "";
+
+                sortedPlayers.forEach((player, index) => {
+                    const tr = document.createElement("tr");
+
+                    {
+                        const rankTd = document.createElement("td");
+                        rankTd.innerText = index + 1;
+                        tr.appendChild(rankTd);
+                    }
+                    
+                    {
+                        const playerTd = document.createElement("td");
+                        playerTd.innerText = player;
+                        tr.appendChild(playerTd);
+                    }
+
+                    {
+                        const scoreTd = document.createElement("td");
+                        const scores = [];
+                        for (let i=1; i<=roundCount; i++) {
+                            const score = scoreMap[player].scoreByRound[i];
+                            if (score) {
+                                scores.push(score);
+                            } else {
+                                scores.push("-");
+                            }
+                        }
+                        scoreTd.innerText = scores.join(" ");
+                        tr.appendChild(scoreTd);
+                    }
+
+                    {
+                        const totalTd = document.createElement("td");
+                        totalTd.innerText = scoreMap[player].totalScore;
+                        tr.appendChild(totalTd);
+                    }
+                    
+                    tbody.appendChild(tr);
+                });
+            };
+
             registeredImage.onload = function () {
                 const playerList = getSelectedPlayerNames();
 				
-                //const img = loadCvImage(registeredImage);
-                //cv.imshow('canvasOutput', img.gray);
+                const img = loadCvImage(registeredImage);
+                cv.imshow('canvasOutput', img.gray);
 
-                gameScores.push(recognize(registeredImage, playerList));
+                const result = recognize(registeredImage, playerList);
+                const text = result.map((e) => e.playerName).join("\r\n") + "\r\n=====\r\n";
+                appendResultText(text);
+                showResult();
             };
         </script>
     </body>
